@@ -1,2 +1,9 @@
-#Executables
+# Executables
 *a.out
+
+# VSCode
+*.vscode*
+
+
+# MACOS
+*.DS_Store*
