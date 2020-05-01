@@ -1,9 +1,15 @@
 
-#include "mapreduce.hpp"
+#include "src/mapreduce.h"
+#include "src/keyvalue.h"
 
 #include "graph.hpp"
 
+
+using namespace MAPREDUCE_NS;
+
+
 #define DATATYPE pair<double *, graph_item *>
+
 
 double ALPHA = 0.85;
 int graph_size = 0, list_size = 0;
@@ -25,7 +31,7 @@ double difference(double *_1, double *_2) {
 
 
 
-void calculate(int task_num, key_value *kv, void *ptr) {
+void calculate(int task_num, KeyValue *kv, void *ptr) {
     double *rank_ = ((DATATYPE *)ptr)->first;
     graph_item *graph_ = ((DATATYPE *)ptr)->second;
     double v;

@@ -82,3 +82,31 @@ int Graph::link_count() {
     assert(read_switch);
     return link_count_;
 }
+
+void Graph::convert(graph_item** graph_list, int* g_size, int* d_size) {
+    vector<graph_item> graph;
+
+    double _s = 1/(double)size_;
+
+    for(auto it=links_.begin(); it!=links_.end(); it++) {
+        graph.push_back({1.0/((double)outlink_count[it->first]), {it->first, it->second}});
+    }
+
+    for(int i=0; i<size_; i++) {
+        graph.push_back({_s, {i, -1}});
+        if(outlink_count[i] == 0)
+            graph.push_back({_s, {i, -2}});
+    }
+
+    shuffle(graph.begin(), graph.end(), default_random_engine());
+
+    (*graph_list) = new graph_item[graph.size()];
+
+    for(int i=0; i<graph.size(); i++)
+        (*graph_list)[i] = graph[i];
+    
+    *g_size = size_;
+    *d_size = graph.size();
+
+    graph.clear();
+}

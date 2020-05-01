@@ -3,6 +3,7 @@
 
 #include "include.hpp"
 
+#define graph_item pair<double, pair<int, int>>
 
 class Graph {
 private:
@@ -65,4 +66,10 @@ public:
      * Total number of links in the graph
      */
     int link_count();
+
+
+    /*
+     * Converting the graph to a more-mappable form
+     */
+    void convert(graph_item**, int*, int*);
 };
