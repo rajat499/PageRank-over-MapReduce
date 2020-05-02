@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     graph_item* graph;
     Graph(argv[1]).convert(&graph, &graph_size, &list_size);
 
-    double *rank = new double[graph_size](); rank[15] = 1;
+    double *rank = new double[graph_size](); rank[0] = 1;
     double *new_rank = new double[graph_size]();
 
     DATATYPE data = {rank, graph};

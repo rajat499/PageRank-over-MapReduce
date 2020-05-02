@@ -125,8 +125,6 @@ int main(int argc, char **argv)
             rank[i] = new_rank[i];
             new_rank[i] = 0;
         }
-        
-        if(!self) cerr << difference(new_rank, rank) << endl;
 
         delete mr;
     }
@@ -137,8 +135,6 @@ int main(int argc, char **argv)
             sum += rank[i];
             cout << i << " : " << rank[i] << endl;
         }
-        cerr << sum << endl;
-        cerr << "DIFF: " << difference(new_rank, rank) << endl;
     }
 
     MPI_Finalize();
