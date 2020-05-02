@@ -11,7 +11,6 @@ double ALPHA = 0.85;
 int graph_size = 0, list_size = 0;
 double LIMIT = 1e-13;
 
-
 /*
  * Euclidean difference b/w vectors
  * @param (_1, _2): vectors
@@ -48,6 +47,8 @@ void calculate(int rank, int w_size, vector<kv_t> *kv, void *ptr) {
         else if(b == -1) // RANDOM JUMP
             b = graph_size + 1;
         
+        v = (b > graph_size)?(v * (1-ALPHA)):(v * ALPHA);
+
         temp.key = b;
         temp.value = v;
 
@@ -65,17 +66,12 @@ void collect(int key, vector<double>& values, void *ptr) {
     
     double *data_ = (double *)ptr;
     
-    if(key == graph_size+1) {
+    if(key >= graph_size) {
         for(int i=0; i<graph_size; i++)
-            data_[i] += total * (1 - ALPHA);
+            data_[i] += total;
     }
-    else if(key == graph_size) {
-        for(int i=0; i<graph_size; i++)
-            data_[i] += total * ALPHA;
-    }
-    else {
-        data_[key] += total * ALPHA;
-    }
+    else
+        data_[key] += total;
 }
 
 
@@ -93,20 +89,33 @@ int main(int argc, char **argv)
     graph_item* graph;
     Graph(argv[1]).convert(&graph, &graph_size, &list_size);
 
-    double *rank = new double[graph_size](); rank[0] = 1;
+    double *rank = new double[graph_size](); rank[15] = 1;
     double *new_rank = new double[graph_size]();
 
     DATATYPE data = {rank, graph};
 
     MapReduce *mr = new MapReduce(MPI_COMM_WORLD);
 
-    for(int i=0; i<4; i++) {
+    while(1) {
 
         mr->map(calculate, &data);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        mr->collate(graph_size+1);
+        /*
+         * NOTE: The conventional method is to use collate(int) in this place, 
+         * which is same as calling aggregate(int) followed by convert.
+         * 
+         * But, due to associativity & commutativity of addition of individual ranks, only convert() is enough to compute the pagerank,
+         * still complying with the core idea of MapReduce!
+         * 
+         * Therefore, instead of ...
+         *              mr->collate(graph_size+1); // Which is also valid, & working (tested)
+         * ... we can use
+         *              mr->convert(); // Only simplistic difference
+         */
+        
+        mr->convert();
 
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -123,26 +132,23 @@ int main(int argc, char **argv)
             break;
         }
 
-        double sum = 0;
         for(int i=0; i<graph_size; i++) {
             rank[i] = new_rank[i];
             new_rank[i] = 0;
         }
 
         mr->reset();
-
-        MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    // if(!self) {
-    //     double sum = 0;
-    //     for(int i=0; i<graph_size; i++) {
-    //         sum += rank[i];
-    //         cout << i << " : " << rank[i] << endl;
-    //     }
-    //     cerr << sum << endl;
-    //     cerr << "DIFF: " << difference(new_rank, rank) << endl;
-    // }
+    if(!self) {
+        double sum = 0;
+        for(int i=0; i<graph_size; i++) {
+            sum += rank[i];
+            cout << i << " : " << rank[i] << endl;
+        }
+        cerr << sum << endl;
+        cerr << "DIFF: " << difference(new_rank, rank) << endl;
+    }
 
     MPI_Finalize();
 }

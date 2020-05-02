@@ -27,6 +27,8 @@ MapReduce::MapReduce(MPI_Comm world_) {
 
     MPI_Type_create_struct(total_items, block_lengths, offsets, types, &mpi_kv_t);
     MPI_Type_commit(&mpi_kv_t);
+
+    MPI_Barrier(world);
 }
 
 
@@ -43,10 +45,8 @@ void MapReduce::aggregate(int max_key) {
 
     MPI_Request send_req[kv_.size() + flag];
 
-    int count = 0;
-
-    for(kv_t item_: kv_)
-        MPI_Isend(&item_, 1, mpi_kv_t, (item_.key * w_size)/(max_key+1), 0, world, send_req + req_index++);
+    for(kv_t& item_: kv_)
+        MPI_Isend(&item_, 1, mpi_kv_t, (item_.key * w_size)/(max_key+1), item_.key, world, send_req + req_index++);
     
     kv_t item_{-1, 0};
     
@@ -60,7 +60,7 @@ void MapReduce::aggregate(int max_key) {
         else new_.push_back(temp_);
     }
 
-    MPI_Waitall(kv_.size() + w_size - 1, send_req, MPI_STATUS_IGNORE);
+    MPI_Waitall(req_index, send_req, MPI_STATUS_IGNORE);
 
     kv_.clear();
     kv_ = new_;
@@ -101,4 +101,5 @@ void MapReduce::reduce(function<void(int, vector<double>&, void *)> reduce_funct
 void MapReduce::reset() {
     kmv_.clear();
     kv_.clear();
+    MPI_Barrier(world);
 }
