@@ -3,13 +3,13 @@
 
 #include "graph.hpp"
 
+
 #define DATATYPE pair<double *, graph_item *>
+
 
 double ALPHA = 0.85;
 int graph_size = 0, list_size = 0;
 double LIMIT = 1e-13;
-
-int self, num_proc;
 
 
 /*
@@ -25,13 +25,14 @@ double difference(double *_1, double *_2) {
 
 
 
-void calculate(int task_num, key_value *kv, void *ptr) {
+void calculate(int rank, int w_size, vector<kv_t> *kv, void *ptr) {
     double *rank_ = ((DATATYPE *)ptr)->first;
     graph_item *graph_ = ((DATATYPE *)ptr)->second;
     double v;
     int a, b;
+    kv_t temp;
 
-    int _start = (self*list_size)/num_proc, _end = ((self + 1)*list_size)/num_proc;
+    int _start = (rank*list_size)/w_size, _end = ((rank + 1)*list_size)/w_size;
 
     for(int i=_start; i<_end; i++) {
         v = graph_[i].first;
@@ -47,29 +48,34 @@ void calculate(int task_num, key_value *kv, void *ptr) {
         else if(b == -1) // RANDOM JUMP
             b = graph_size + 1;
         
-        kv->add((char *)&b, sizeof(int), (char *)&v, sizeof(double));
+        temp.key = b;
+        temp.value = v;
+
+        kv->push_back(temp);
     }
 }
 
 
 
-void collect(char *key, int keybytes, char *multivalue, int nvalues, int *valuebytes, KeyValue *kv, void *ptr) {
-    int index = *(int *)key;
+void collect(int key, vector<double>& values, void *ptr) {
     
     double total = 0;
-    for(int i=0; i<nvalues; i++) 
-        total += (*(double *)(multivalue + sizeof(double) * i));
+    for(int i=0; i<values.size(); i++)
+        total += values[i];
     
     double *data_ = (double *)ptr;
     
-    if(index == graph_size+1)
+    if(key == graph_size+1) {
         for(int i=0; i<graph_size; i++)
             data_[i] += total * (1 - ALPHA);
-    else if(index == graph_size)
+    }
+    else if(key == graph_size) {
         for(int i=0; i<graph_size; i++)
             data_[i] += total * ALPHA;
-    else
-        data_[index] += total * ALPHA;
+    }
+    else {
+        data_[key] += total * ALPHA;
+    }
 }
 
 
@@ -78,6 +84,8 @@ int main(int argc, char **argv)
 {
 
     MPI_Init(&argc, &argv);
+
+    int self, num_proc;
 
     MPI_Comm_rank(MPI_COMM_WORLD,&self);
     MPI_Comm_size(MPI_COMM_WORLD,&num_proc);
@@ -90,15 +98,15 @@ int main(int argc, char **argv)
 
     DATATYPE data = {rank, graph};
 
-    while(1) {
-        
-        MapReduce *mr = new MapReduce(MPI_COMM_WORLD);
+    MapReduce *mr = new MapReduce(MPI_COMM_WORLD);
 
-        mr->map(num_proc, calculate, &data);
+    for(int i=0; i<4; i++) {
+
+        mr->map(calculate, &data);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        int key_count = mr->collate(NULL);
+        mr->collate(graph_size+1);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -115,25 +123,26 @@ int main(int argc, char **argv)
             break;
         }
 
+        double sum = 0;
         for(int i=0; i<graph_size; i++) {
             rank[i] = new_rank[i];
             new_rank[i] = 0;
         }
-        
-        if(!self) cerr << difference(new_rank, rank) << endl;
 
-        delete mr;
+        mr->reset();
+
+        MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    if(!self) {
-        double sum = 0;
-        for(int i=0; i<graph_size; i++) {
-            sum += rank[i];
-            cout << i << " : " << rank[i] << endl;
-        }
-        cerr << sum << endl;
-        cerr << "DIFF: " << difference(new_rank, rank) << endl;
-    }
+    // if(!self) {
+    //     double sum = 0;
+    //     for(int i=0; i<graph_size; i++) {
+    //         sum += rank[i];
+    //         cout << i << " : " << rank[i] << endl;
+    //     }
+    //     cerr << sum << endl;
+    //     cerr << "DIFF: " << difference(new_rank, rank) << endl;
+    // }
 
     MPI_Finalize();
 }
