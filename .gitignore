@@ -1,6 +1,6 @@
 # Executables
 *a.out
-*.o
+*pagerank.o
 
 # VSCode
 *.vscode*

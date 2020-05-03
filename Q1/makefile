@@ -1,3 +1,3 @@
 
 all:
-	mpic++ -std=c++17 pagerank.cpp mapreduce.cpp graph.cpp -o 2_bin
+	g++7 pagerank.cpp /usr/lib/x86_64-linux-gnu/libboost_system.a /usr/lib/x86_64-linux-gnu/libboost_iostreams.a /usr/lib/x86_64-linux-gnu/libboost_filesystem.a -pthread -o pagerank.o
