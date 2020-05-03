@@ -37,26 +37,12 @@ namespace pagerank
         bool const setup_key(typename MapTask::key_type &key)
         {
             key = sequence_++;
-            return key < list_size;
+            return key < 1;
         }
 
         bool const get_data(typename MapTask::key_type &key, typename MapTask::value_type &value)
         {
-            typename MapTask::value_type v = graph_[key].first;
-            typename MapTask::key_type a = graph_[key].second.first;
-            typename MapTask::key_type b =  graph_[key].second.second;
-
-            v = rank_[a] * v;
-
-            if(v == 0) return false;
-            
-            if(b == -2) // DANGLING
-                b = graph_size;
-            else if(b == -1) // RANDOM JUMP
-                b = graph_size + 1;
-
-            std::swap(b, key);
-            std::swap(v, value);
+            value = list_size;
             return true;
         }
 
@@ -64,14 +50,27 @@ namespace pagerank
         unsigned sequence_;
     };
 
-    struct map_task : public mapreduce::map_task<unsigned, double>
+    struct map_task : public mapreduce::map_task<unsigned, unsigned>
     {
         template <typename Runtime>
         void operator()(Runtime &runtime, key_type const &key, value_type const &value) const
         {
-            typename Runtime::reduce_task_type::key_type const emit_key = key;
-            typename Runtime::reduce_task_type::value_type val = value;
-            runtime.emit_intermediate(emit_key, val);
+            for(auto i = key; i < value; i++ ){
+                typename Runtime::reduce_task_type::value_type v = graph_[i].first;
+                typename Runtime::reduce_task_type::key_type a = graph_[i].second.first;
+                typename Runtime::reduce_task_type::key_type b =  graph_[i].second.second;
+
+                v = rank_[a] * v;
+
+                if(v == 0) continue;
+                
+                if(b == -2) // DANGLING
+                    b = graph_size;
+                else if(b == -1) // RANDOM JUMP
+                    b = graph_size + 1;
+
+                runtime.emit_intermediate(b, v);
+            }
         }
     };
 
@@ -137,7 +136,8 @@ int main(int argc, char **argv)
     pagerank::new_rank_ = new double[graph_size]();
 
     mapreduce::specification spec;
-
+    
+    auto start =  std::chrono::high_resolution_clock::now();
     while(1) {
 
         pagerank::job::datasource_type datasource;
@@ -157,7 +157,8 @@ int main(int argc, char **argv)
         }
 
     }
-
+    auto end = std::chrono::high_resolution_clock::now();
+    cerr<<"Finished Page rank in: "<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " milliseconds" <<endl;
     double sum = 0;
     for(int i=0; i<graph_size; i++) {
         sum += pagerank::rank_[i];
