@@ -4,12 +4,14 @@
 #include "graph.hpp"
 
 
+// Datasource Type
 #define DATATYPE pair<double *, graph_item *>
 
-
-double ALPHA = 0.85;
+// Algorithm Constants
+double ALPHA = 0.85, LIMIT = 1e-13;
+// Size containers
 int graph_size = 0, list_size = 0;
-double LIMIT = 1e-13;
+
 
 /*
  * Euclidean difference b/w vectors
@@ -23,59 +25,79 @@ double difference(double *_1, double *_2) {
 }
 
 
+/*
+ * Map Task Function.
+ * Works on individual graph_item and extracts keys out.
+ * 
+ * @param (rank, w_size): MPI parameters
+ * @param (vector<kv_t> *): Key-Value list pointer
+ * @param (void *): Datasource pointer
+ */
+void calculate(int rank, int w_size, vector<kv_t> *kv, void *data) {
+    // Extracting Rank Vector
+    double *rank_ = ((DATATYPE *)data)->first;
+    // Extracting Graph
+    graph_item *graph_ = ((DATATYPE *)data)->second;
 
-void calculate(int rank, int w_size, vector<kv_t> *kv, void *ptr) {
-    double *rank_ = ((DATATYPE *)ptr)->first;
-    graph_item *graph_ = ((DATATYPE *)ptr)->second;
-    double v;
-    int a, b;
-    kv_t temp;
+    // Local Parameters
+    double v; int a, b; kv_t temp;
 
+    // Specifying, task splitting.
     int _start = (rank*list_size)/w_size, _end = ((rank + 1)*list_size)/w_size;
 
+    // Processing all graph_items (in range)
     for(int i=_start; i<_end; i++) {
+        // Extracting Information
         v = graph_[i].first;
         a = graph_[i].second.first;
         b = graph_[i].second.second;
-
+        // Accomodating rank
         v = rank_[a] * v;
-
+        // Avoid 0 rank
         if(v == 0) continue;
-        
+        // Boundary cases
         if(b == -2) // DANGLING
             b = graph_size;
         else if(b == -1) // RANDOM JUMP
             b = graph_size + 1;
-        
+        // Corporating ALPHA
         v = (b > graph_size)?(v * (1-ALPHA)):(v * ALPHA);
-
+        // Setting structure
         temp.key = b;
         temp.value = v;
-
+        // Add to key-value
         kv->push_back(temp);
     }
 }
 
 
-
-void collect(int key, vector<double>& values, void *ptr) {
-    
+/*
+ * Reduce Task Function.
+ * Works on Key-MultiValue pairs
+ * 
+ * @param (key): Key Value
+ * @param (vector<double>&): Data Value Container
+ * @param (void *): Datasource Pointer
+ */
+void collect(int key, vector<double>& values, void *data) {
+    // Local container
     double total = 0;
+    // Working with all values
     for(int i=0; i<values.size(); i++)
         total += values[i];
-    
-    double *data_ = (double *)ptr;
-    
-    if(key >= graph_size) {
+    // Extracing Rank Vector
+    double *data_ = (double *)data;
+    // Adding to vector (case wise)
+    if(key >= graph_size)
         for(int i=0; i<graph_size; i++)
             data_[i] += total;
-    }
     else
         data_[key] += total;
 }
 
 
 
+// MAIN
 int main(int argc, char **argv)
 {
 
@@ -86,27 +108,31 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD,&self);
     MPI_Comm_size(MPI_COMM_WORLD,&num_proc);
 
-    double start_time = MPI_Wtime();
+    double start_time = MPI_Wtime(); // Timer
 
+    // Reading Graph
     graph_item* graph;
     Graph(argv[1]).convert(&graph, &graph_size, &list_size);
 
-    if(!self) 
+    if(!self) // Logging
         cerr << "Graph Read. Size " << graph_size << ". Link Size " << list_size << ". Time " << (MPI_Wtime()-start_time) << "s.\n";
 
+    // Creating rank containers
     double *rank = new double[graph_size](); rank[0] = 1;
     double *new_rank = new double[graph_size]();
 
+    // Setting the general datatype
     DATATYPE data = {rank, graph};
 
+    start_time = MPI_Wtime(); // Timer
+
+    // MapReduce Entity
     MapReduce *mr = new MapReduce(MPI_COMM_WORLD);
 
-    start_time = MPI_Wtime();
+    while(1) {  // PAGERANK LOOP
 
-    while(1) {
-
+        // MAP
         mr->map(calculate, &data);
-
         MPI_Barrier(MPI_COMM_WORLD);
 
         /*
@@ -122,38 +148,37 @@ int main(int argc, char **argv)
          *              mr->convert(); // Only simplistic difference
          */
         
+        // CONVERT
         mr->convert();
-
         MPI_Barrier(MPI_COMM_WORLD);
 
+        // REDUCE
         mr->reduce(collect, new_rank);
-
         MPI_Barrier(MPI_COMM_WORLD);
 
+        // COLLECTING RESULT
         MPI_Allreduce(MPI_IN_PLACE, new_rank, graph_size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
         MPI_Barrier(MPI_COMM_WORLD);
 
-        if(difference(new_rank, rank) < LIMIT) {
-            break;
-        }
+        // Breakcheck
+        if(difference(new_rank, rank) < LIMIT) break;
 
+        // RESET
         for(int i=0; i<graph_size; i++) {
             rank[i] = new_rank[i];
             new_rank[i] = 0;
         }
-
         mr->reset();
     }
 
+    // Logging
     if(!self) cerr << "Map Reduce Complete. Time " << (MPI_Wtime()-start_time) << "s.\n";
 
+    // Writing Output
     if(!self) {
         ofstream out_(argv[2]);
-
         for(int i=0; i<graph_size; i++)
             out_ << i << " : " << setprecision(10) <<  rank[i] << "\n";
-        
         out_.close();
     }
 
