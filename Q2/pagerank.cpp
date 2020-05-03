@@ -86,8 +86,13 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD,&self);
     MPI_Comm_size(MPI_COMM_WORLD,&num_proc);
 
+    double start_time = MPI_Wtime();
+
     graph_item* graph;
     Graph(argv[1]).convert(&graph, &graph_size, &list_size);
+
+    if(!self) 
+        cerr << "Graph Read. Size " << graph_size << ". Link Size " << list_size << ". Time " << (MPI_Wtime()-start_time) << "s.\n";
 
     double *rank = new double[graph_size](); rank[0] = 1;
     double *new_rank = new double[graph_size]();
@@ -95,6 +100,8 @@ int main(int argc, char **argv)
     DATATYPE data = {rank, graph};
 
     MapReduce *mr = new MapReduce(MPI_COMM_WORLD);
+
+    start_time = MPI_Wtime();
 
     while(1) {
 
@@ -128,7 +135,6 @@ int main(int argc, char **argv)
         MPI_Barrier(MPI_COMM_WORLD);
 
         if(difference(new_rank, rank) < LIMIT) {
-            if(!self) cerr << "BREAKPOINT!" << endl;
             break;
         }
 
@@ -140,14 +146,15 @@ int main(int argc, char **argv)
         mr->reset();
     }
 
+    if(!self) cerr << "Map Reduce Complete. Time " << (MPI_Wtime()-start_time) << "s.\n";
+
     if(!self) {
-        double sum = 0;
-        for(int i=0; i<graph_size; i++) {
-            sum += rank[i];
-            cout << i << " : " << rank[i] << endl;
-        }
-        cerr << sum << endl;
-        cerr << "DIFF: " << difference(new_rank, rank) << endl;
+        ofstream out_(argv[2]);
+
+        for(int i=0; i<graph_size; i++)
+            out_ << i << " : " << setprecision(10) <<  rank[i] << "\n";
+        
+        out_.close();
     }
 
     MPI_Finalize();
