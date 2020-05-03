@@ -18,14 +18,13 @@
 #include <map>
 #include <set>
 
-#include <mpi.h>
-
 #include <unordered_map>
 #include <unordered_set>
 
 #include <algorithm>
 
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <time.h>
 #include <sys/stat.h>
