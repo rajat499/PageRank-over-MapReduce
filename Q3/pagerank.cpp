@@ -1,6 +1,6 @@
 
-#include "src/mapreduce.h"
-#include "src/keyvalue.h"
+#include "include/mapreduce.h"
+#include "include/keyvalue.h"
 
 #include "graph.hpp"
 

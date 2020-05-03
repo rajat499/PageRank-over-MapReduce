@@ -1,5 +1,6 @@
 # Executables
 *a.out
+*.o
 
 # VSCode
 *.vscode*
