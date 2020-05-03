@@ -32,7 +32,7 @@ public:
 
     MapReduce(MPI_Comm);
 
-    void map(function<void(int, int, vector<kv_t> *, void *)>, void *);
+    void map(std::function<void(int, int, vector<kv_t> *, void *)>, void *);
 
     void collate(int);
 
@@ -40,7 +40,7 @@ public:
 
     void convert();
 
-    void reduce(function<void(int, vector<double>&, void *)>, void *);
+    void reduce(std::function<void(int, vector<double>&, void *)>, void *);
 
     void reset();
 };

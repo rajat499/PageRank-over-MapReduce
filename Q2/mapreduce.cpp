@@ -32,7 +32,7 @@ MapReduce::MapReduce(MPI_Comm world_) {
 }
 
 
-void MapReduce::map(function<void(int, int, vector<kv_t> *, void *)> map_func, void * data) {
+void MapReduce::map(std::function<void(int, int, vector<kv_t> *, void *)> map_func, void * data) {
     map_func(rank, w_size, &kv_, data);
 }
 
@@ -93,7 +93,7 @@ void MapReduce::collate(int max_key) {
 }
 
 
-void MapReduce::reduce(function<void(int, vector<double>&, void *)> reduce_function, void * data) {
+void MapReduce::reduce(std::function<void(int, vector<double>&, void *)> reduce_function, void * data) {
     for(kmv_t& item_: kmv_)
         reduce_function(item_.key, item_.values, data);    
 }
