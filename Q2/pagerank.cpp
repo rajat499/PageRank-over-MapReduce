@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     graph_item* graph;
     Graph(argv[1]).convert(&graph, &graph_size, &list_size);
 
-    if(!self) // Logging
+    if(!self && *argv[2]=='1') // Logging
         cerr << "Graph Read. Size " << graph_size << ". Link Size " << list_size << ". Time " << (MPI_Wtime()-start_time) << "s.\n";
 
     // Creating rank containers
@@ -172,14 +172,12 @@ int main(int argc, char **argv)
     }
 
     // Logging
-    if(!self) cerr << "Map Reduce Complete. Time " << (MPI_Wtime()-start_time) << "s.\n";
+    if(!self && *argv[2]=='1') cerr << "Map Reduce Complete. Time " << (MPI_Wtime()-start_time) << "s.\n";
 
     // Writing Output
-    if(!self) {
-        ofstream out_(argv[2]);
+    if(!self && *argv[2]=='1') {
         for(int i=0; i<graph_size; i++)
-            out_ << i << " : " << setprecision(10) <<  rank[i] << "\n";
-        out_.close();
+            cout << i << " : " << setprecision(10) <<  rank[i] << "\n";
     }
 
     MPI_Finalize();

@@ -9,5 +9,8 @@
 *test*
 *.txt
 
+#submission
+*.zip
+
 # MACOS
 *.DS_Store*
